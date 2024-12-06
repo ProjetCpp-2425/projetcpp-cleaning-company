@@ -1,405 +1,479 @@
-#include "mainwindow.h"
-#include "ui_mainwindow.h"
-#include "graphiquewidget.h"
+#include"mainwindow.h"
+#include"ui_mainwindow.h"
+#include<QMainWindow>
+#include<QMessageBox>
+#include "Client.h"
+#include <QFileDialog>
 #include <QMessageBox>
-#include <QSqlQueryModel>
-#include <QApplication>
-#include <QMainWindow>
-#include <QLineEdit>
 #include <QVBoxLayout>
-#include <QWidget>
-#include <QComboBox>
-#include <QPdfWriter>
-#include <QPainter>
-#include <QPrinter>
-#include <QPrintPreviewDialog>
-#include <QtCharts/QBarSeries>
-#include <QtCharts/QBarSet>
+
+#include<QSqlTableModel>
+#include <QDebug>
+#include <QtPrintSupport/QPrinter>
 #include <QtCharts/QChart>
 #include <QtCharts/QChartView>
-#include <QtCharts/QBarCategoryAxis>
-#include <QtCharts/QValueAxis>
 #include <QtCharts/QPieSeries>
 #include <QtCharts/QPieSlice>
-#include <QSqlError>
-#include <QFileDialog>
-#include<QSqlTableModel>
-#include<QStandardItemModel>
+#include <QtQuick>
+#include <QTimer>
 MainWindow::MainWindow(QWidget *parent)
- : QMainWindow(parent),ui(new Ui::MainWindow),meteoService(new MeteoService(this))//, networkManager(new QNetworkAccessManager(this))
-{
-   ui->setupUi(this);
-   this->setEnabled(true);
-   ui-> nom ->setEnabled(true);
-   ui-> id->setEnabled(true);
-   ui->doubleSpinBoxprix ->setEnabled(true);
-   ui-> duree->setEnabled(true);
-   ui-> disponibilite->setEnabled(true);
-   ui->etat ->setEnabled(true);
-   ui->comboBox->addItem("Disponibilité", "disponibilite");
-   ui->comboBox->addItem("État", "etat");
-   ui->comboBox->addItem("Coût", "prix");
+    : QMainWindow(parent)
+    , ui(new Ui::MainWindow)
 
-    connect(ui->comboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, &MainWindow::trierServices);
-    connect(ui->exporterPDFButton, &QToolButton::clicked, this, &MainWindow::exporterEnPDF);
- //connect(ui->boutonstatistique, &QPushButton::clicked, this, &MainWindow::mettreAJourStatistiques);
+{Client client;
+    ui->setupUi(this);
+    ui->tableView_2->setModel(client.afficher());
+    /*ui->comboBoxTri->addItem("NOM_Client");
+    connect(ui->comboBoxTri, SIGNAL(currentIndexChanged(int)), this, SLOT(trierClients()));*/
+    ui->comboBoxTri->addItem("Nom");
+       ui->comboBoxTri->addItem("Prénom");
+       ui->comboBoxTri->addItem("Méthode de paiement");
 
+       connect(ui->lineEditRecherche, &QLineEdit::textChanged, this, [this]() {
+           QString texte = ui->lineEditRecherche->text();
+           QString critere = ui->comboBoxRecherche->currentData().toString();
 
-    connect(meteoService, &MeteoService::meteoRecue, this, [this](double temperature, QString description) {
-        qDebug() << "Météo reçue ! Température :" << temperature << "°C, Description :" << description;
-        bool pluiePrevue = description.contains("rain", Qt::CaseInsensitive);
-        ajusterPlanification(description, temperature, pluiePrevue); });
-         meteoService->getMeteoActuelle("paris");
-         /*recommandationsModel = new QStandardItemModel(this);
-         recommandationsModel->setHorizontalHeaderLabels({"Service", "Recommandation"});
+           Client client;
+           QSqlQueryModel* model = client.rechercherParCritereEtTexte( critere, texte);
 
-         ui->tableViewRecommandations->setModel(recommandationsModel);
-         ui->tableViewRecommandations->resizeColumnsToContents();
-
-          connect(ui->btnAnalyserTendances, &QPushButton::clicked, this, &MainWindow::analyserTendances);*/
+           ui->tableView_2->setModel(model); });
 
 
-        // Mettre à jour les statistiques
-        mettreAJourStatistiques();
-update();
+           // Ajouter les options de recherche dans le QComboBox
+           ui->comboBoxRecherche->addItem("NOM_Client", "NOM_Client");
+           ui->comboBoxRecherche->addItem("PRENOM_Client", "PRENOM_Client");
+           ui->comboBoxRecherche->addItem("TYPE", "TYPE");
 
+           int ret = A.connect_arduino();
+           switch (ret) {
+           case 0:
+               qDebug() << "Arduino est disponible et connecté au port :" << A.getarduino_port_name();
+               break;
+           case 1:
+               qDebug() << "Arduino est disponible mais pas connecté au port :" << A.getarduino_port_name();
+               break;
+           case -1:
+               qDebug() << "Arduino n'est pas disponible";
+               break;
+           }
 
-
-
-afficherServices();
-
-
-}
-
-MainWindow::~MainWindow() {
-    delete ui;
-   // delete networkManager;
-}
-
-// Fonction pour ajouter un service
-void MainWindow::on_ajouter_clicked() {
-    // Récupération de l'ID
-    int id = ui->id->text().toInt();
-
-    // Vérification que l'ID est un entier positif
-    if (id <= 0) {
-        QMessageBox::warning(this, "Erreur de saisie", "L'ID doit être un entier positif.");
-        return;
-    }
-
-    // Vérification d'unicité
-    QSqlQuery checkQuery;
-    checkQuery.prepare("SELECT COUNT(*) FROM Services WHERE id = :id");
-    checkQuery.bindValue(":id", id);
-    checkQuery.exec();
-
-    if (checkQuery.next() && checkQuery.value(0).toInt() > 0) {
-        QMessageBox::warning(this, "Erreur", "L'ID existe déjà. Veuillez entrer un ID unique.");
-        return;
-    }
-
-    // Si toutes les vérifications sont passées, ajout du service
-    QString nom = ui->nom->text();
-    QString duree = ui->duree->text();
-    double prix = ui->doubleSpinBoxprix->value();
-    QString disponibilite = ui->disponibilite->text();
-    QString etat = ui->etat->text();
-
-    Services service(id, nom, duree, prix, disponibilite, etat);
-    bool test = service.ajouter();
-    if (test) {
-        QMessageBox::information(this, "Succès", "Service ajouté avec succès.");
-        afficherServices();
-    } else {
-        QMessageBox::critical(this, "Erreur", "Échec de l'ajout du service.");
-    }
-mettreAJourStatistiques();
-}
-
-// Fonction pour modifier un service
-void MainWindow::on_modifier_clicked() {
-    int id = ui->id->text().toInt();
-
-    // Vérifiez si l'ID existe
-    if (id == 0) {
-        QMessageBox::warning(this, "Erreur", "Veuillez entrer un ID valide pour modifier.");
-        return;
-    }
-
-    // Récupérer le service existant avec l'ID donné
-      Services serviceExistant = Services::getById(id);
-
-    // Mise à jour uniquement des champs modifiés
-    QString nom = ui->nom->text();
-    if (!nom.isEmpty()) {
-        serviceExistant.setNom(nom);
-    }
-
-    QString duree = ui->duree->text();
-    if (!duree.isEmpty()) {
-        serviceExistant.setDuree(duree);
-    }
-
-    double prix = ui->doubleSpinBoxprix->value();
-    if (prix != serviceExistant.getPrix()) {
-        serviceExistant.setPrix(prix);
-    }
-
-    QString disponibilite = ui->disponibilite->text();
-    if (!disponibilite.isEmpty()) {
-        serviceExistant.setDisponibilite(disponibilite);
-    }
-
-    QString etat = ui->etat->text();
-    if (!etat.isEmpty()) {
-        serviceExistant.setEtat(etat);
-    }
-
-    // Appeler la méthode de mise à jour
-    if (serviceExistant.modifier(id)) {
-        QMessageBox::information(this, "Succès", "Service modifié avec succès.");
-        afficherServices();
-    } else {
-        QMessageBox::critical(this, "Erreur", "Échec de la modification du service.");
-    }
-}
-
-
-// Fonction pour supprimer un service
-void MainWindow::on_supprimer_clicked() {
-    int id = ui->id->text().toInt();
-    serviceActuel.setId(id);
-
-    if (serviceActuel.supprimer(id)) {
-        QMessageBox::information(this, "Succès", "Service supprimé avec succès.");
-        afficherServices();
-    } else {
-        QMessageBox::critical(this, "Erreur", "Échec de la suppression du service.");
-    }
-}
-
-// Fonction pour afficher tous les services dans le QTableView
-void MainWindow::afficherServices()
-{
-    QSqlQueryModel *model = new QSqlQueryModel();
-    model = serviceActuel.afficher();
-    ui->tableViewServices->setModel(model);
-}
-
-
-void MainWindow::on_rechercher_clicked() {
-    QString critere = ui->champRecherche->text();  // champRecherche est l'input utilisateur pour recherche
-
-    // Appeler la fonction de recherche de la classe Services
-    Services service;
-    QSqlQueryModel* model = service.rechercher(critere);
-
-    // Mettre à jour la vue tableau avec les résultats
-    ui->tableViewServices->setModel(model);
-}
-void MainWindow::trierServices() {
- Services service;   QString critereTri = ui->comboBox->currentData().toString();
-    QSqlQueryModel* model = service.trierParCritere(critereTri);
-    ui->tableViewServices->setModel(model);
-}
-QString MainWindow::getDescriptionForService(const QString &nomService) {
-    // Définir les descriptions par défaut en fonction du nom du service
-    if (nomService == "desinfection") {
-        return "Service de désinfection complet pour les usines, en tenant compte des zones à haut risque. Désinfection des surfaces, équipements et zones sensibles.";
-    } else if (nomService == "maison") {
-        return "Service de nettoyage approfondi de la maison, y compris le lavage des sols, des fenêtres et des surfaces. Un service de qualité pour rendre votre maison impeccable.";
-    } else if (nomService == "résidence") {
-        return "Service de nettoyage pour les résidences, en veillant à l'entretien des espaces de vie et des zones communes, avec une attention particulière aux détails.";
-    } else if (nomService == "chantier") {
-        return "Nettoyage de fin de chantier, incluant l'enlèvement des débris, la poussière, et la préparation des locaux pour leur utilisation.";
-       } else if (nomService == "usine") {
-               return "Service de nettoyage pour les usines , en veillant à l'entretien des machines et de la propreté des espaces communs , avec une attention particulière aux détails.";
-    } else {
-        return "Service non défini. Veuillez contacter le support pour plus d'informations.";
-    }
-}
-
-
-void MainWindow::exporterEnPDF() {
-    QString fileName = QFileDialog::getSaveFileName(this, "Enregistrer le PDF", "", "*.pdf");
-       if (fileName.isEmpty()) return;
-
-       // Récupérer les services actifs de la base de données
-       QSqlQuery query("SELECT nom, duree, prix, disponibilite FROM services WHERE etat = 'actif'");
-
-       // Préparer le contenu du document PDF
-       QString contenu = "<h1>Description des Services Actifs</h1>";
-       while (query.next()) {
-           QString nomService = query.value("nom").toString();
-           QString description = getDescriptionForService(nomService);  // Appel à la fonction pour récupérer la description du service
-
-           contenu += "<p><b>Nom : </b>" + nomService + "<br>";
-           contenu += "<b>Durée : </b>" + query.value("duree").toString() + "<br>";
-           contenu += "<b>Prix : </b>" + QString::number(query.value("prix").toDouble()) + "<br>";
-           contenu += "<b>Disponibilité : </b>" + query.value("disponibilite").toString() + "<br>";
-           contenu += "<b>Description : </b>" + description + "</p>";  // Ajouter la description
-           contenu += "<hr>";
+           // Connecter le signal de réception de données Arduino au slot update_label
+           QObject::connect(A.getserial(), SIGNAL(readyRead()), this, SLOT(update_label()));
        }
 
-       // Créer et configurer le document PDF
-       QTextDocument document;
-       document.setHtml(contenu);
-       QPrinter printer(QPrinter::PrinterResolution);
-       printer.setOutputFormat(QPrinter::PdfFormat);
-       printer.setOutputFileName(fileName);
-       document.print(&printer);
-}
-QMap<QString, int> MainWindow::calculerDisponibilite() {
-    QMap<QString, int> disponibilite;
 
-    QSqlQuery query;
-    query.prepare("SELECT disponibilite, COUNT(*) as count FROM services GROUP BY disponibilite");
 
-    if (!query.exec()) {
-        qDebug() << "Erreur lors de l'exécution de la requête:" << query.lastError().text();
-        return disponibilite;
-    }
+       void MainWindow::update_label() {
+           // Ajouter les données reçues au tampon
+           dataBuffer += A.read_from_arduino();
+           qDebug() << "Données reçues d'Arduino :" << dataBuffer;
 
-    while (query.next()) {
-        QString dispo = query.value("disponibilite").toString().toLower();
-        int count = query.value("count").toInt();
+           // Vérifier si le tampon contient une ligne complète se terminant par '\n'
+           int newlineIndex = dataBuffer.indexOf('\n');
+           if (newlineIndex != -1) {
+               // Extraire le message complet
+               QString completeMessage = dataBuffer.left(newlineIndex).trimmed();
+               dataBuffer.remove(0, newlineIndex + 1);
 
-        if (dispo == "disponible") {
-            disponibilite["disponible"] += count;
-        } else if (dispo == "indisponible") {
-            disponibilite["indisponible"] += count;
-        }
-    }
+               // Décider d'envoyer automatiquement '1' ou '0' selon le message reçu
+               if (completeMessage == "AUTHORIZED") {
+                   A.write_to_arduino("1"); // Envoyer "1" pour allumer la LED verte
+                   qDebug() << "Commande '1' envoyée à Arduino automatiquement.";
+                   ui->statusLabel->setText("Carte autorisée !");
+               } else if (completeMessage == "DENIED") {
+                   A.write_to_arduino("0"); // Envoyer "0" pour allumer la LED rouge
+                   qDebug() << "Commande '0' envoyée à Arduino automatiquement.";
+                   ui->statusLabel->setText("Carte refusée !");
+               }
 
-    qDebug() << "Disponibilité calculée:" << disponibilite; // Log des résultats
-    return disponibilite;
+       }
+
+
 }
 
-
-
-void MainWindow::mettreAJourStatistiques()
+MainWindow::~MainWindow()
 {
-    QMap<QString, int> stats = calculerDisponibilite();
-
-        // Mettre à jour les variables membres
-        servicesDisponibles = stats.value("disponible", 0);
-        servicesIndisponibles = stats.value("indisponible", 0);
-        ui->widget_3->setStatistiques(servicesDisponibles, servicesIndisponibles);
-
-
-        // Forcer le rafraîchissement de la fenêtre pour redessiner
-        update();  // Ajoute un événement de redessin
-        qDebug() << "Statistiques mises à jour : Disponible =" << servicesDisponibles
-                 << ", Indisponible =" << servicesIndisponibles;
-}
-void MainWindow::recevoirPrevisionsMeteo(const QString &condition, double temperature, bool pluiePrevue) {
-     ajusterPlanification(condition, temperature, pluiePrevue);
- }
-
-void MainWindow::ajusterPlanification(const QString &condition, double temperature, bool pluiePrevue) {
-    if (pluiePrevue) {
-        // Désactiver les services extérieurs
-        mettreAJourDisponibilite(false, "fenetre");
-        mettreAJourDisponibilite(false, "jardin");
-
-        QMessageBox::information(this, "Planification Dynamique",
-                                 "Pluie prévue : les services de 'nettoyage fenêtre' et 'nettoyage jardin' "
-                                 "ont été désactivés.");
-    } else {
-        // Réactiver les services extérieurs si le temps est dégagé
-        mettreAJourDisponibilite(true,"fenetre");
-        mettreAJourDisponibilite(true, "jardin");
-
-        QMessageBox::information(this, "Planification Dynamique",
-                                 QString("Météo actuelle : %1, Température : %2°C.\nLes services extérieurs sont disponibles.")
-                                     .arg(condition)
-                                     .arg(temperature));
-    }
-
-    // Rafraîchir l'affichage du tableau des services
-    rafraichirTableauServices();
-}
-void MainWindow::mettreAJourDisponibilite(bool disponible, const QString &motCle) {
-    QSqlQuery query;
-    query.prepare("UPDATE services SET disponibilite = :disponibilite WHERE nom LIKE :motCle");
-    query.bindValue(":disponibilite", disponible ? "disponible" : "indisponible");
-    query.bindValue(":motCle", "%" + motCle + "%");
-
-    if (!query.exec()) {
-        QMessageBox::critical(this, "Erreur", "Échec de la mise à jour des disponibilités : " + query.lastError().text());
-    } else {
-        qDebug() << "Mise à jour des disponibilités effectuée pour : " << motCle;
-    }
-}
-void MainWindow::rafraichirTableauServices() {
-    QSqlTableModel *model = new QSqlTableModel(this);
-    model->setTable("services");
-    model->select();
-
-    // Définir le modèle pour le tableau
-    ui->tableViewServices->setModel(model);
-    ui->tableViewServices->resizeColumnsToContents();
-}
-/*void MainWindow::analyserTendances() {
-    // URL de l'API
-    QString apiUrl = "https://serpapi.com/search?engine=google_trends&q=cleaning&apikey=3bd9d0941485d77b78eeb619d30acd0f461fa71eb900a2a62a0d9abb83458174";
-    QUrl url = QUrl::fromUserInput(apiUrl);
-
-    if (!url.isValid()) {
-        QMessageBox::warning(this, "Erreur URL", "L'URL fournie est invalide.");
-        return;
-    }
-
-    QNetworkRequest request(url);
-
-    connect(networkManager, &QNetworkAccessManager::finished, this, &MainWindow::onTrendsDataReceived);
-
-    networkManager->get(request); // Envoi de la requête GET
+    delete ui;
 }
 
-void MainWindow::onTrendsDataReceived(QNetworkReply *reply) {
-    if (reply->error() != QNetworkReply::NoError) {
-        QMessageBox::critical(this, "Erreur API", "Impossible de récupérer les tendances : " + reply->errorString());
-        reply->deleteLater();
-        return;
-    }
+void MainWindow::on_modifier_2_clicked()
+{
+    QItemSelectionModel *select = ui->tableView_2->selectionModel();
+       if (!select->hasSelection()) {
+           QMessageBox::critical(this, "Error", "Please select a row to modify.");
+           return;
+       }
 
-    // Traitement des données JSON reçues
-    QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
-    QJsonObject rootObject = doc.object();
-    QJsonArray trends = rootObject["trending_searches"].toArray(); // Adapter selon la structure JSON
+       // Get the selected row index and extract the ID from the model
+       int row = select->currentIndex().row();
+       int id = ui->tableView_2->model()->data(ui->tableView_2->model()->index(row, 0)).toInt();
+       if (!Etmp.checkIfidExists(id)) {
+               QMessageBox::warning(this, "ID Not Found", "The ID does not exist. Please enter a valid ID.");
+               return;
+           }
 
-    afficherRecommandations(trends);  // Affichage des tendances dans le tableau
+           Client c = Etmp.getclientByid(id);
+           ui->CIN_Clientm->setText(QString::number(c.getCIN_client()));
+           ui->Nom_Clientm->setText(c.getNOM_client());
+           ui->PRENOM_Clientm->setText(c.getPRENOM_client());
+           ui->DATES_Clientm->setDate(c.getDATES_Client());
+           ui->METHODEP_Clientm->setCurrentText(c.getMETHODEP_Client());
+           ui->TYPEm->setCurrentText(c.getTYPE());
+           ui->ADRESSE_Clientm->setText(c.getADRESSE_Client());
+           ui->NUMC_Clientm->setText(c.getNUMC_Client());
 
-    reply->deleteLater();  // Nettoyer la réponse
+
+
 }
 
-void MainWindow::afficherRecommandations(const QJsonArray &tendances) {
-    // Vider les recommandations existantes
-    recommandationsModel->clear();
-    recommandationsModel->setHorizontalHeaderLabels({"Service", "Recommandation"});
 
-    foreach (const QJsonValue &trend, tendances) {
-        QString motCle = trend.toObject()["API"].toString(); // Adapter selon la structure JSON
-        QString recommandation;
+void MainWindow::on_modifier_4_clicked()
+{
 
-        // Mapping des mots-clés de tendance vers des services de nettoyage
-        if (motCle.contains("House", Qt::CaseInsensitive)) {
-            recommandation = "Nettoyage intérieur";
-        } else if (motCle.contains("Garden", Qt::CaseInsensitive)) {
-            recommandation = "Nettoyage jardin";
-        } else {
-            recommandation = "Service non identifié";
+           int id=ui->CIN_Clientm->text().toInt();
+           QString nom=ui->Nom_Clientm->text();
+           QString prenom=ui->PRENOM_Clientm->text();
+           QDate date=ui->DATES_Clientm->date();
+           QString methode=ui->METHODEP_Clientm->currentText();
+           QString type=ui->TYPEm->currentText();
+           QString adresse=ui->ADRESSE_Clientm->text();
+           QString numc=ui->NUMC_Clientm->text();
+
+
+
+
+           Client client = Etmp.getclientByid(id);
+           bool test=Etmp.modifier(id,nom,prenom,date,methode,type,adresse,numc);
+                       if (test)
+                       {
+                           ui->tableView_2->setModel(Etmp.afficher());
+                           QMessageBox::information(nullptr, QObject::tr("ok"),
+                                       QObject::tr("modification effectue.\n"
+                                                   "Click Cancel to exit."), QMessageBox::Cancel);
+                       }
+                       else
+                           QMessageBox::critical(nullptr, QObject::tr("not ok"),
+                                       QObject::tr("modification non effectue.\n"
+                                                      "Click Cancel to exit."), QMessageBox::Cancel);
+
+}
+
+void MainWindow::on_ajouter_2_clicked()
+{
+    int CIN_Client = ui->CIN_Client_2->text().toInt();
+    QString NOM_Client = ui->Nom_Client_2->text();
+    QString PRENOM_Client = ui->PRENOM_Client_2->text();
+    QDate DATES_Client = ui->DATES_Client_2->date();
+    QString METHODEP_Client = ui->METHODEP_Client_2->currentText();
+    QString type = ui->TYPE_2->currentText();
+    QString adresse = ui->ADRESSE_Client_2->text();
+    QString numc = ui->NUMC_Client_2->text();
+
+    if (currentClient.getIMAGE_Client().isEmpty()) {
+            QMessageBox::warning(this, "Erreur", "Aucune photo n'est associée au client. Veuillez charger une photo.");
+            return;
         }
 
-        QList<QStandardItem *> items;
-        items.append(new QStandardItem(recommandation));
-        items.append(new QStandardItem(motCle));
+    // Créer un objet Client avec tous les paramètres
+    Client C(CIN_Client, NOM_Client, PRENOM_Client, DATES_Client, METHODEP_Client, type, adresse, numc, currentClient.getPhotoPath());
 
-        recommandationsModel->appendRow(items);
+    if (C.ajouter()) {
+        ui->tableView_2->setModel(C.afficher());
+        QMessageBox::information(this, "Succès", "Le client a été ajouté avec succès.");
+    } else {
+        QMessageBox::critical(this, "Erreur", "Impossible d'ajouter le client.");
+    }
+}
+
+
+
+
+void MainWindow::on_supprimer_2_clicked()
+{
+    QItemSelectionModel *select = ui->tableView_2->selectionModel();
+    if (!select->hasSelection()) {
+        QMessageBox::critical(this, "Error", "Please select a row to delete.");
+        return;
     }
 
-    ui->tableViewRecommandations->resizeColumnsToContents();
-    QMessageBox::information(this, "Tendances actuelles", "Les recommandations basées sur les tendances ont été mises à jour.");
-}*/
+    // Get the selected row index and extract the ID from the model
+    int row = select->currentIndex().row();
+    int id = ui->tableView_2->model()->data(ui->tableView_2->model()->index(row, 0)).toInt();
+    Client e=Etmp.getclientByid(id);
+    if (e.getCIN_client()!=id){
+       QMessageBox::critical(this, "Error", "This ID doesn't exist!");
+    }else
+    {
+        bool test=Etmp.supprimer(id);
+        if (test)
+        {
+            ui->tableView_2->setModel(Etmp.afficher());
+            QMessageBox::information(nullptr, QObject::tr("ok"),
+                        QObject::tr("suppression effectue.\n"
+                                    "Click Cancel to exit."), QMessageBox::Cancel);
+        }
+        else
+            QMessageBox::critical(nullptr, QObject::tr("not ok"),
+                        QObject::tr("suppression non effectue.\n"
+                                    "Click Cancel to exit."), QMessageBox::Cancel);
+        ui->tableView_2->setModel(Etmp.afficher());
+
+
+    }
+}
+
+
+void MainWindow::on_comboBoxTri_currentIndexChanged(int index )
+{
+
+    Client client;
+
+        // Définir le critère en fonction du choix de l'utilisateur
+        QString critere;
+        switch (index) {
+            case 0:
+                critere = "NOM_Client";  // Tri par Nom
+                break;
+            case 1:
+                critere = "PRENOM_Client";  // Tri par Prénom
+                break;
+            case 2:
+                critere = "METHODEP_Client";  // Tri par Méthode de paiement
+                break;
+            default:
+                critere = "NOM_Client";  // Par défaut, trier par Nom
+                break;
+        }
+
+        // Appeler la méthode de tri et obtenir le modèle de données
+        QSqlQueryModel* model = client.trier(critere);
+
+        // Mettre à jour le QTableView avec le modèle trié
+        ui->tableView_2->setModel(model);
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ void MainWindow::on_exportToPDF_clicked()   {
+        QString filenameCriterion = "clients";  // Nom de base du fichier
+
+        // Construire le nom du fichier avec la date
+        QString filename = filenameCriterion + "_" + QDate::currentDate().toString("yyyyMMdd") + ".pdf";
+        QString filePath = QFileDialog::getSaveFileName(this, "Save PDF", filename, "*.pdf");
+
+        if (filePath.isEmpty()) {
+            return;  // Si l'utilisateur annule, sortir de la fonction
+        }
+
+        // Récupérer le modèle associé à la vue
+        QAbstractItemModel* model = ui->tableView_2->model();
+        if (!model) {
+            QMessageBox::critical(this, "Error", "No data available in the table to export.");
+            return;
+        }
+
+        // Appeler la méthode exportToPDF via l'objet Client
+        Client client;
+        client.exportToPDF(filePath, model);
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*void MainWindow::on_stat_methods_clicked()
+{
+
+
+        // Obtenez les statistiques des méthodes
+        Client client;
+        QSqlQueryModel* model = client.getMethodStatistics();
+
+        if (!model) {
+            QMessageBox::critical(this, "Erreur", "Impossible de récupérer les statistiques.");
+            return;
+        }
+
+        // Préparez les données pour le graphique
+        QPieSeries* series = new QPieSeries();
+        qreal total = 0;
+        QMap<QString, qreal> methodCounts;
+
+        for (int i = 0; i < model->rowCount(); ++i) {
+            QString method = model->data(model->index(i, 0)).toString();
+            qreal count = model->data(model->index(i, 1)).toDouble();
+            methodCounts.insert(method, count);
+            total += count;
+        }
+
+        // Ajoutez les données dans la série
+        for (auto it = methodCounts.begin(); it != methodCounts.end(); ++it) {
+            qreal percentage = (it.value() / total) * 100;
+            QString label = it.key() + " (" + QString::number(percentage, 'f', 2) + "%)";
+            series->append(label, it.value());
+        }
+
+        // Créez le graphique
+        QChart* chart = new QChart();
+        chart->addSeries(series);
+        chart->setTitle("Statistiques des Méthodes de Paiement");
+        chart->setTheme(QChart::ChartThemeLight);
+        chart->legend()->setAlignment(Qt::AlignRight);
+
+        // Affichez le graphique dans un QChartView
+        QChartView* chartView = new QChartView(chart);
+        chartView->setRenderHint(QPainter::Antialiasing);
+
+        // Remplacez le contenu existant dans le widget par le graphique
+        if (ui->widget_methods->layout()) {
+            QLayoutItem* item;
+            while ((item = ui->widget_methods->layout()->takeAt(0)) != nullptr) {
+                delete item->widget();
+                delete item;
+            }
+            delete ui->widget_methods->layout();
+        }
+
+        QVBoxLayout* layout = new QVBoxLayout(ui->widget_methods);
+        layout->addWidget(chartView);
+        ui->widget_methods->setLayout(layout);
+
+        delete model; // Libérez la mémoire du modèle
+    }
+
+*/
+
+
+
+
+
+
+
+
+
+
+
+void MainWindow::on_btnUploadPhoto_clicked()
+{
+
+        // Ouvrir un dialogue de fichier pour sélectionner une image
+        QString filePath = QFileDialog::getOpenFileName(this, "Sélectionner une photo", "", "Images (*.png *.jpg *.jpeg)");
+
+        if (!filePath.isEmpty()) {
+            // Stocker temporairement le chemin de la photo
+            currentClient.setPhotoPath(filePath);
+
+            // Charger l'image dans le QLabel pour un aperçu
+            QPixmap pixmap(filePath);
+            ui->IMAGE_Client_2->setPixmap(pixmap.scaled(ui->IMAGE_Client_2->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+
+            QByteArray imageBytes = currentClient.convertPhotoToByteArray(filePath);
+
+                    if (!imageBytes.isEmpty()) {
+                        currentClient.setIMAGE_Client(imageBytes);  // Stocker les données binaires dans l'objet Client
+                        currentClient.setPhotoPath(filePath);    }
+
+
+
+            QMessageBox::information(this, "Photo Chargée", "La photo a été sélectionnée avec succès.");
+        } else {
+            QMessageBox::warning(this, "Erreur", "Aucune photo sélectionnée.");
+        }
+
+    }
+
+
+void MainWindow::afficherPhoto(const QByteArray& imageBytes) {
+    QPixmap pixmap;
+    pixmap.loadFromData(imageBytes);
+
+    if (!pixmap.isNull()) {
+        ui->IMAGE_Client_2->setPixmap(pixmap.scaled(ui->IMAGE_Client_2->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    } else {
+        QMessageBox::warning(this, "Erreur", "Impossible de charger la photo.");
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void MainWindow::on_pushButtonRecherche_clicked()
+{
+        QString texte = ui->lineEditRecherche->text();  // Récupérer le texte saisi
+        QString critere = ui->comboBoxRecherche->currentData().toString();  // Récupérer la colonne sélectionnée
+
+        Client client;
+        QSqlQueryModel* model = client.rechercherParCritereEtTexte(critere, texte);  // Recherche filtrée
+
+        ui->tableView_2->setModel(model);  // Afficher les résultats
+    }
+
+
+
+
+
+
+
+
+
