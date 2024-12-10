@@ -3,11 +3,29 @@
 # Project created by QtCreator 2018-10-26T21:45:23
 #
 #-------------------------------------------------
+<<<<<<< HEAD
 
 QT += core gui sql printsupport network
 QT += serialport
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
+=======
+# Ajout du chemin vers QCustomPlot
+QT += core gui network
+
+QT       += core gui sql
+QT += printsupport
+QT += charts
+SOURCES += \
+    graphiquewidget.cpp \
+    meteoservices.cpp
+HEADERS += \
+    graphiquewidget.h \
+    meteoservices.h
+
+greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
+TARGET = QtChartsExample
+>>>>>>> 09fd3e5a0a303ada44e8a58f383005db0699a00f
 TARGET = Atelier_Connexion
 TEMPLATE = app
 
@@ -25,6 +43,7 @@ DEFINES += QT_DEPRECATED_WARNINGS
 CONFIG += c++11
 
 SOURCES += \
+<<<<<<< HEAD
     arduino.cpp \
         main.cpp \
         mainwindow.cpp \
@@ -40,6 +59,17 @@ HEADERS += \
     sms.h \
     statistique.h \
     transaction.h
+=======
+        main.cpp \
+        mainwindow.cpp \
+    connection.cpp \
+    services.cpp
+
+HEADERS += \
+        mainwindow.h \
+    connection.h \
+    services.h
+>>>>>>> 09fd3e5a0a303ada44e8a58f383005db0699a00f
 
 FORMS += \
         mainwindow.ui

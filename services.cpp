@@ -109,10 +109,16 @@ QSqlQueryModel* Services::rechercher(const QString& critere) {
     QSqlQuery query;
 
     // Préparer la requête SQL avec un critère de recherche dynamique
+<<<<<<< HEAD
     query.prepare("SELECT * FROM services WHERE nom LIKE :critere OR id = :id_critere OR disponibilite LIKE : disponible");
     query.bindValue(":critere", "%" + critere + "%");
     query.bindValue(":id_critere", critere.toInt());
     query.bindValue(":disponible", "%disponible%");
+=======
+    query.prepare("SELECT * FROM services WHERE nom LIKE :critere OR id = :id_critere");
+    query.bindValue(":critere", "%" + critere + "%");
+    query.bindValue(":id_critere", critere.toInt());
+>>>>>>> 09fd3e5a0a303ada44e8a58f383005db0699a00f
 
     // Exécution de la requête et vérification des erreurs
     if (!query.exec()) {
