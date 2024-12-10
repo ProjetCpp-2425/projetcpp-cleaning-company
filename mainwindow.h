@@ -1,5 +1,6 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
+<<<<<<< HEAD
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QJsonDocument>
@@ -17,6 +18,18 @@ class MainWindow;
 
 class MainWindow : public QMainWindow
 {
+=======
+
+#include <QMainWindow>
+#include "employe.h"
+#include <QMap>
+#include <QTimer>
+QT_BEGIN_NAMESPACE
+namespace Ui { class MainWindow; }
+QT_END_NAMESPACE
+
+class MainWindow : public QMainWindow {
+>>>>>>> 5482a8d21bc36440840a90978f288100425a78fa
     Q_OBJECT
 
 public:
@@ -24,6 +37,7 @@ public:
     ~MainWindow();
 
 private slots:
+<<<<<<< HEAD
     void showLoginPage();  // Naviguer vers la page de login
     void validateLogin();  // Valider les identifiants
 void showhomepage();
@@ -54,6 +68,34 @@ private:
 
     QMap<QString, int> calculerDisponibilite();
     //ArduinoManager *arduino;
+=======
+    void on_ajouter_clicked();
+    void on_modifier_clicked();
+    void on_supprimer_clicked();
+    void afficherEmploye();
+void on_rechercher_clicked();
+void trierEmploye();void exporterEnPDF();
+void on_stat_employes_clicked();
+void sendEmail();
+void sendEmailWithAttachment();
+private:
+    Ui::MainWindow *ui;
+    Employe EmployeActuel;
+
+
+
+
+
+
+private:
+    QMap<int, QString> employeeReminders; // Clé : ID employé, Valeur : Texte du rappel
+    QTimer* reminderTimer;
+
+private slots:
+    void addReminder();
+    void showReminders();
+    void checkReminders();
+>>>>>>> 5482a8d21bc36440840a90978f288100425a78fa
 };
 
 #endif // MAINWINDOW_H
