@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/">
+        <file>QmlMap.qml</file>
+        <file>img/img.png</file>
+    </qresource>
+</RCC>

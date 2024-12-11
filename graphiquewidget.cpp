@@ -38,7 +38,7 @@ void GraphiqueWidget::paintEvent(QPaintEvent *event) {
     painter.setBrush(Qt::green);
     painter.drawRect(10, 10, 10, 10);
 
-    painter.drawText(10, 50, QString("Indisponible: %1").arg(servicesIndisponibles));
+    painter.drawText(30, 50, QString("Indisponible: %1").arg(servicesIndisponibles));
     painter.setBrush(Qt::red);
     painter.drawRect(10, 40, 10, 10);
 }

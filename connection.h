@@ -3,9 +3,13 @@
 #include <QSqlDatabase>
 #include <QSqlError>
 #include <QSqlQuery>
+#include <QApplication>
+#include <QMessageBox>
+
 
 class Connection
-{ QSqlDatabase db;
+{
+    QSqlDatabase db;
 public:
     Connection();
     bool createconnect();

@@ -1,7 +1,7 @@
 #include "services.h"
 #include <QSqlQueryModel>
 #include <QSqlError>
-
+#include <QDebug>
 
 // Constructeurs
 Services::Services() : id(0), prix(0.0) {}
@@ -109,9 +109,10 @@ QSqlQueryModel* Services::rechercher(const QString& critere) {
     QSqlQuery query;
 
     // Préparer la requête SQL avec un critère de recherche dynamique
-    query.prepare("SELECT * FROM services WHERE nom LIKE :critere OR id = :id_critere");
+    query.prepare("SELECT * FROM services WHERE nom LIKE :critere OR id = :id_critere OR disponibilite LIKE : disponible");
     query.bindValue(":critere", "%" + critere + "%");
     query.bindValue(":id_critere", critere.toInt());
+    query.bindValue(":disponible", "%disponible%");
 
     // Exécution de la requête et vérification des erreurs
     if (!query.exec()) {
