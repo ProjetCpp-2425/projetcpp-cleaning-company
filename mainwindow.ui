@@ -740,7 +740,7 @@ background-color:#4CBB17;</string>
       </property>
      </item>
     </widget>
-    <widget class="QLabel" name="label_9">
+    <widget class="QLabel" name="clienbox_2">
      <property name="geometry">
       <rect>
        <x>20</x>
@@ -777,6 +777,21 @@ border-radius:15px;</string>
        <string>choisir client</string>
       </property>
      </item>
+     <item>
+      <property name="text">
+       <string>3</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>2</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>1</string>
+      </property>
+     </item>
     </widget>
     <widget class="QLineEdit" name="code">
      <property name="geometry">
@@ -809,7 +824,7 @@ border-radius:15px;</string>
      <x>0</x>
      <y>0</y>
      <width>1091</width>
-     <height>26</height>
+     <height>21</height>
     </rect>
    </property>
   </widget>

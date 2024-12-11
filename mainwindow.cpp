@@ -83,19 +83,27 @@ void MainWindow::populateClientComboBox() {
 
     // Query the database to fetch client IDs
     QSqlQuery query;
-    query.prepare("SELECT ID FROM clients");
+    query.prepare("SELECT IDCLIENT FROM client");
 
     if (query.exec()) {
-        // Loop through the result and add each ID to the combo box
         while (query.next()) {
             QString id_client = query.value(0).toString();
+            qDebug() << "ID client trouvé : " << id_client;
             ui->clienbox->addItem(id_client);
         }
         qDebug() << "Client IDs successfully added to the combo box.";
     } else {
-        // Handle query errors
         qDebug() << "Failed to fetch client IDs: " << query.lastError().text();
     }
+    QStringList clientIds;
+    while (query.next()) {
+        QString id_client = query.value(0).toString();
+        clientIds << id_client;
+        ui->clienbox->addItem(id_client);
+    }
+    qDebug() << "Liste des IDs récupérés : " << clientIds;
+
+
 }
 
 void MainWindow::onSearchCriterionChanged(int index)
